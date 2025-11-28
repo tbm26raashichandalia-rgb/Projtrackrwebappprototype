@@ -1,19 +1,14 @@
 import { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LandingPage } from './components/LandingPage';
 import { SignupPage } from './components/SignupPage';
 import { LoginPage } from './components/LoginPage';
 import { Dashboard } from './components/Dashboard';
+import { ProfilePage } from './components/ProfilePage';
 import { Navigation } from './components/Navigation';
-import { createClient } from './utils/supabase/client';
-import { projectId, publicAnonKey } from './utils/supabase/info';
-
-export interface User {
-  id: string;
-  email: string;
-  name: string;
-  accessToken: string;
-}
+import { ProtectedRoute, PublicRoute } from './components/ProtectedRoute';
+import { projectId } from './utils/supabase/info';
 
 export interface Project {
   id: string;
@@ -29,127 +24,73 @@ export interface Project {
 
 const API_URL = `https://${projectId}.supabase.co/functions/v1/make-server-5f69ad58`;
 
-function App() {
-  const [user, setUser] = useState<User | null>(null);
+function AppContent() {
+  const { user, signIn, signUp, signOut } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [serverError, setServerError] = useState<boolean>(false);
 
-  // Initialize - check for existing session
+  // Fetch projects when user logs in
   useEffect(() => {
-    const initAuth = async () => {
-      try {
-        const supabase = createClient();
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (session?.user) {
-          const userData: User = {
-            id: session.user.id,
-            email: session.user.email || '',
-            name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || '',
-            accessToken: session.access_token,
-          };
-          setUser(userData);
-          await fetchProjects(session.access_token);
-        }
-      } catch (error) {
-        console.error('Init auth error:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+    if (user) {
+      fetchProjects();
+    } else {
+      setProjects([]);
+      setServerError(false);
+    }
+  }, [user]);
 
-    initAuth();
-  }, []);
+  const fetchProjects = async () => {
+    if (!user) return;
 
-  const fetchProjects = async (accessToken: string) => {
     try {
       const response = await fetch(`${API_URL}/projects`, {
         headers: {
-          'Authorization': `Bearer ${accessToken}`,
+          'Authorization': `Bearer ${user.accessToken}`,
         },
       });
 
       if (response.ok) {
         const data = await response.json();
         setProjects(data.projects || []);
+        setServerError(false);
+      } else {
+        console.error('Failed to fetch projects:', response.statusText);
+        setProjects([]);
+        setServerError(true);
       }
     } catch (error) {
       console.error('Fetch projects error:', error);
+      // Server might not be deployed yet, use empty array
+      setProjects([]);
+      setServerError(true);
     }
   };
 
   const handleLogin = async (email: string, password: string) => {
-    try {
-      const supabase = createClient();
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) {
-        console.error('Login error:', error.message);
-        alert('Login failed: ' + error.message);
-        return false;
-      }
-
-      if (data.session?.user) {
-        const userData: User = {
-          id: data.session.user.id,
-          email: data.session.user.email || '',
-          name: data.session.user.user_metadata?.name || data.session.user.email?.split('@')[0] || '',
-          accessToken: data.session.access_token,
-        };
-        setUser(userData);
-        await fetchProjects(data.session.access_token);
-        return true;
-      }
-
-      return false;
-    } catch (error) {
-      console.error('Login exception:', error);
-      alert('Login failed. Please try again.');
+    const { success, error } = await signIn(email, password);
+    
+    if (!success) {
+      alert('Login failed: ' + error);
       return false;
     }
+    
+    return true;
   };
 
-  const handleSignup = async (email: string, password: string) => {
-    try {
-      const response = await fetch(`${API_URL}/signup`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${publicAnonKey}`,
-        },
-        body: JSON.stringify({
-          email,
-          password,
-          name: email.split('@')[0],
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        console.error('Signup error:', data.error);
-        alert('Signup failed: ' + data.error);
-        return false;
-      }
-
-      // Auto-login after signup
-      return await handleLogin(email, password);
-    } catch (error) {
-      console.error('Signup exception:', error);
-      alert('Signup failed. Please try again.');
+  const handleSignup = async (email: string, password: string, full_name?: string) => {
+    const { success, error } = await signUp(email, password, full_name);
+    
+    if (!success) {
+      alert('Signup failed: ' + error);
       return false;
     }
+    
+    return true;
   };
 
   const handleLogout = async () => {
     try {
-      const supabase = createClient();
-      await supabase.auth.signOut();
-      setUser(null);
-      setProjects([]);
+      await signOut();
     } catch (error) {
       console.error('Logout error:', error);
     }
@@ -233,53 +174,65 @@ function App() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#A7C7E7] flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-blue-900">Loading...</p>
-        </div>
-      </div>
-    );
-  }
+  return (
+    <div className="min-h-screen bg-[#A7C7E7]">
+      <Navigation user={user} onLogout={handleLogout} />
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        
+        <Route 
+          path="/signup" 
+          element={
+            <PublicRoute>
+              <SignupPage onSignup={handleSignup} />
+            </PublicRoute>
+          } 
+        />
+        
+        <Route 
+          path="/login" 
+          element={
+            <PublicRoute>
+              <LoginPage onLogin={handleLogin} />
+            </PublicRoute>
+          } 
+        />
+        
+        <Route 
+          path="/dashboard" 
+          element={
+            <ProtectedRoute>
+              <Dashboard 
+                user={user!}
+                projects={projects}
+                onAddProject={addProject}
+                onUpdateProject={updateProject}
+                onDeleteProject={deleteProject}
+                serverError={serverError}
+              />
+            </ProtectedRoute>
+          } 
+        />
+        
+        <Route 
+          path="/profile" 
+          element={
+            <ProtectedRoute>
+              <ProfilePage />
+            </ProtectedRoute>
+          } 
+        />
+      </Routes>
+    </div>
+  );
+}
 
+function App() {
   return (
     <BrowserRouter>
-      <div className="min-h-screen bg-[#A7C7E7]">
-        <Navigation user={user} onLogout={handleLogout} />
-        <Routes>
-          <Route path="/" element={<LandingPage />} />
-          <Route 
-            path="/signup" 
-            element={
-              user ? <Navigate to="/dashboard" /> : <SignupPage onSignup={handleSignup} />
-            } 
-          />
-          <Route 
-            path="/login" 
-            element={
-              user ? <Navigate to="/dashboard" /> : <LoginPage onLogin={handleLogin} />
-            } 
-          />
-          <Route 
-            path="/dashboard" 
-            element={
-              user ? (
-                <Dashboard 
-                  user={user}
-                  projects={projects}
-                  onAddProject={addProject}
-                  onUpdateProject={updateProject}
-                  onDeleteProject={deleteProject}
-                />
-              ) : (
-                <Navigate to="/login" />
-              )
-            } 
-          />
-        </Routes>
-      </div>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
     </BrowserRouter>
   );
 }

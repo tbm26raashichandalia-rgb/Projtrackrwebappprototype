@@ -15,20 +15,28 @@ const supabase = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 );
 
+// Health check endpoint
+app.get('/make-server-5f69ad58/health', (c) => {
+  return c.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 // Signup endpoint
 app.post('/make-server-5f69ad58/signup', async (c) => {
   try {
-    const { email, password, name } = await c.req.json();
+    const { email, password, name, full_name } = await c.req.json();
 
     if (!email || !password) {
       return c.json({ error: 'Email and password are required' }, 400);
     }
 
-    // Create user with Supabase Auth
+    // Create user with Supabase Auth with profile metadata
     const { data, error } = await supabase.auth.admin.createUser({
       email,
       password,
-      user_metadata: { name: name || email.split('@')[0] },
+      user_metadata: { 
+        name: name || email.split('@')[0],
+        full_name: full_name || name || email.split('@')[0],
+      },
       // Automatically confirm the user's email since an email server hasn't been configured
       email_confirm: true,
     });
@@ -43,6 +51,7 @@ app.post('/make-server-5f69ad58/signup', async (c) => {
         id: data.user.id,
         email: data.user.email,
         name: data.user.user_metadata.name,
+        full_name: data.user.user_metadata.full_name,
       }
     });
   } catch (error) {
@@ -179,6 +188,81 @@ app.delete('/make-server-5f69ad58/projects/:id', async (c) => {
   } catch (error) {
     console.log(`Delete project error: ${error}`);
     return c.json({ error: 'Failed to delete project' }, 500);
+  }
+});
+
+// Get user profile from KV store (fallback method)
+app.get('/make-server-5f69ad58/profile', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    
+    if (!accessToken) {
+      return c.json({ error: 'Authorization required' }, 401);
+    }
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+    
+    if (authError || !user) {
+      console.log(`Auth error in get profile: ${authError?.message}`);
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    // Get profile from KV store
+    const profile = await kv.get(`profile:${user.id}`);
+    
+    if (!profile) {
+      // Return basic profile from auth metadata
+      return c.json({ 
+        profile: {
+          id: user.id,
+          email: user.email,
+          full_name: user.user_metadata?.full_name || user.email?.split('@')[0],
+          avatar_url: user.user_metadata?.avatar_url,
+          created_at: user.created_at,
+        }
+      });
+    }
+    
+    return c.json({ profile });
+  } catch (error) {
+    console.log(`Get profile error: ${error}`);
+    return c.json({ error: 'Failed to fetch profile' }, 500);
+  }
+});
+
+// Update user profile in KV store (fallback method)
+app.put('/make-server-5f69ad58/profile', async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    
+    if (!accessToken) {
+      return c.json({ error: 'Authorization required' }, 401);
+    }
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+    
+    if (authError || !user) {
+      console.log(`Auth error in update profile: ${authError?.message}`);
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+
+    const updates = await c.req.json();
+    
+    const profile = {
+      id: user.id,
+      email: user.email,
+      full_name: updates.full_name,
+      avatar_url: updates.avatar_url,
+      created_at: user.created_at,
+    };
+
+    // Store in KV
+    await kv.set(`profile:${user.id}`, profile);
+    
+    return c.json({ profile });
+  } catch (error) {
+    console.log(`Update profile error: ${error}`);
+    return c.json({ error: 'Failed to update profile' }, 500);
   }
 });
 

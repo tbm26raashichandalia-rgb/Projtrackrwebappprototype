@@ -1,17 +1,19 @@
 import { useState, useMemo } from 'react';
-import { User, Project } from '../App';
+import { AuthUser } from '../utils/supabase/auth';
+import { Project } from '../App';
 import { ProjectFormModal } from './ProjectFormModal';
 import { Search, Plus, ExternalLink, Github, Edit2, Trash2, Filter } from 'lucide-react';
 
 interface DashboardProps {
-  user: User;
+  user: AuthUser;
   projects: Project[];
   onAddProject: (project: Omit<Project, 'id' | 'user_id' | 'created_at'>) => void;
   onUpdateProject: (id: string, updates: Partial<Project>) => void;
   onDeleteProject: (id: string) => void;
+  serverError?: boolean;
 }
 
-export function Dashboard({ user, projects, onAddProject, onUpdateProject, onDeleteProject }: DashboardProps) {
+export function Dashboard({ user, projects, onAddProject, onUpdateProject, onDeleteProject, serverError }: DashboardProps) {
   const [showModal, setShowModal] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [searchName, setSearchName] = useState('');
@@ -107,6 +109,25 @@ export function Dashboard({ user, projects, onAddProject, onUpdateProject, onDel
             <span>Add Project</span>
           </button>
         </div>
+
+        {/* Server Error Message */}
+        {serverError && (
+          <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-4 mb-6">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0">
+                <svg className="w-5 h-5 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-yellow-800 font-medium">Server Connection Issue</h3>
+                <p className="text-yellow-700 text-sm mt-1">
+                  Unable to connect to the server. Your projects may not load. This is normal for new deployments - the server may take a few moments to start up.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Filter Bar */}
         <div className="bg-white rounded-lg shadow-md p-4 mb-6">

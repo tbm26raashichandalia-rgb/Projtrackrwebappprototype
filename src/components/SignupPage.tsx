@@ -3,11 +3,12 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, AlertCircle } from 'lucide-react';
 
 interface SignupPageProps {
-  onSignup: (email: string, password: string) => boolean;
+  onSignup: (email: string, password: string, full_name?: string) => Promise<boolean>;
 }
 
 export function SignupPage({ onSignup }: SignupPageProps) {
   const navigate = useNavigate();
+  const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -17,6 +18,11 @@ export function SignupPage({ onSignup }: SignupPageProps) {
 
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {};
+
+    // Full name validation
+    if (!fullName || fullName.trim().length === 0) {
+      newErrors.fullName = 'Full name is required';
+    }
 
     // Email validation
     if (!email) {
@@ -43,11 +49,11 @@ export function SignupPage({ onSignup }: SignupPageProps) {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (validateForm()) {
-      const success = onSignup(email, password);
+      const success = await onSignup(email, password, fullName);
       if (success) {
         navigate('/dashboard');
       }
@@ -64,6 +70,29 @@ export function SignupPage({ onSignup }: SignupPageProps) {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Full Name Field */}
+            <div>
+              <label htmlFor="fullName" className="block text-gray-700 mb-2">
+                Full Name
+              </label>
+              <input
+                type="text"
+                id="fullName"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  errors.fullName ? 'border-red-500' : 'border-gray-300'
+                }`}
+                placeholder="John Doe"
+              />
+              {errors.fullName && (
+                <div className="flex items-center gap-1 mt-1 text-red-600 text-sm">
+                  <AlertCircle className="w-4 h-4" />
+                  <span>{errors.fullName}</span>
+                </div>
+              )}
+            </div>
+
             {/* Email Field */}
             <div>
               <label htmlFor="email" className="block text-gray-700 mb-2">
