@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Project } from '../App';
-import { X, AlertCircle } from 'lucide-react';
+import { X, Save, Plus, Sparkles } from 'lucide-react';
 
 interface ProjectFormModalProps {
   project: Project | null;
@@ -9,64 +9,48 @@ interface ProjectFormModalProps {
 }
 
 export function ProjectFormModal({ project, onClose, onSubmit }: ProjectFormModalProps) {
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    batch: 'Fall 2025',
-    vibe_link: '',
-    github_link: '',
-    tags: [] as string[],
-  });
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [batch, setBatch] = useState('');
+  const [vibeLink, setVibeLink] = useState('');
+  const [githubLink, setGithubLink] = useState('');
+  const [tags, setTags] = useState<string[]>([]);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
-
-  const batches = ['Fall 2025', 'Spring 2026', 'Fall 2026', 'Spring 2027'];
-  const allTags = ['Personal', 'Academic', 'Case Comp', 'Client'];
 
   useEffect(() => {
     if (project) {
-      setFormData({
-        name: project.name,
-        email: project.email,
-        batch: project.batch,
-        vibe_link: project.vibe_link,
-        github_link: project.github_link,
-        tags: project.tags,
-      });
+      setName(project.name);
+      setEmail(project.email);
+      setBatch(project.batch);
+      setVibeLink(project.vibe_link);
+      setGithubLink(project.github_link);
+      setTags(project.tags);
     }
   }, [project]);
 
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {};
 
-    // Name validation
-    if (!formData.name.trim()) {
+    if (!name.trim()) {
       newErrors.name = 'Project name is required';
     }
 
-    // Email validation
-    if (!formData.email.trim()) {
+    if (!email.trim()) {
       newErrors.email = 'Email is required';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       newErrors.email = 'Please enter a valid email';
     }
 
-    // Vibe link validation
-    if (!formData.vibe_link.trim()) {
-      newErrors.vibe_link = 'Vibe Code App link is required';
-    } else if (!formData.vibe_link.startsWith('https://')) {
-      newErrors.vibe_link = 'Vibe link must start with https://';
+    if (!batch.trim()) {
+      newErrors.batch = 'Batch is required';
     }
 
-    // GitHub link validation
-    if (!formData.github_link.trim()) {
-      newErrors.github_link = 'GitHub repository link is required';
-    } else if (!formData.github_link.includes('github.com/')) {
-      newErrors.github_link = 'GitHub link must contain github.com/';
+    if (vibeLink && !vibeLink.startsWith('https://')) {
+      newErrors.vibeLink = 'Vibe link must start with https://';
     }
 
-    // Batch validation
-    if (!formData.batch) {
-      newErrors.batch = 'Please select a batch';
+    if (githubLink && !githubLink.includes('github.com/')) {
+      newErrors.githubLink = 'GitHub link must contain github.com/';
     }
 
     setErrors(newErrors);
@@ -77,197 +61,222 @@ export function ProjectFormModal({ project, onClose, onSubmit }: ProjectFormModa
     e.preventDefault();
     
     if (validateForm()) {
-      onSubmit(formData);
+      onSubmit({
+        name,
+        email,
+        batch,
+        vibe_link: vibeLink,
+        github_link: githubLink,
+        tags,
+      });
     }
   };
 
   const toggleTag = (tag: string) => {
-    setFormData(prev => ({
-      ...prev,
-      tags: prev.tags.includes(tag)
-        ? prev.tags.filter(t => t !== tag)
-        : [...prev.tags, tag],
-    }));
+    setTags(prev => 
+      prev.includes(tag) 
+        ? prev.filter(t => t !== tag)
+        : [...prev, tag]
+    );
+  };
+
+  const allTags = ['Personal', 'Academic', 'Case Comp', 'Client'];
+
+  const getTagColor = (tag: string, selected: boolean) => {
+    if (!selected) return 'bg-gray-100 text-gray-600 hover:bg-gray-200';
+    
+    const colors: { [key: string]: string } = {
+      'Personal': 'bg-purple-500 text-white',
+      'Academic': 'bg-blue-500 text-white',
+      'Case Comp': 'bg-amber-500 text-white',
+      'Client': 'bg-pink-500 text-white',
+    };
+    return colors[tag] || 'bg-gray-500 text-white';
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
-          <h2 className="text-blue-900">
-            {project ? 'Edit Project' : 'Add New Project'}
-          </h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div 
+        className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="sticky top-0 bg-gradient-to-r from-pink-500 via-rose-500 to-amber-500 px-8 py-6 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+              <Sparkles className="w-6 h-6 text-white" />
+            </div>
+            <h2 className="text-2xl font-bold text-white">
+              {project ? 'Edit Project' : 'Add New Project'}
+            </h2>
+          </div>
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 transition-colors"
+            className="p-2 hover:bg-white/20 rounded-full transition-all duration-200"
           >
-            <X className="w-6 h-6" />
+            <X className="w-6 h-6 text-white" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* Name Field */}
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="p-8 space-y-6">
+          {/* Project Name */}
           <div>
-            <label htmlFor="name" className="block text-gray-700 mb-2">
-              Project Name <span className="text-red-500">*</span>
+            <label htmlFor="name" className="block text-sm font-bold text-gray-900 mb-2">
+              Project Name *
             </label>
             <input
-              type="text"
               id="name"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                errors.name ? 'border-red-500' : 'border-gray-300'
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="My Awesome Project"
+              className={`w-full px-5 py-4 bg-gray-50 border-2 rounded-xl focus:outline-none transition-all duration-200 text-gray-900 ${
+                errors.name 
+                  ? 'border-red-400 focus:border-red-500' 
+                  : 'border-transparent focus:border-pink-500 focus:bg-white'
               }`}
-              placeholder="E.g., E-Commerce Platform"
             />
             {errors.name && (
-              <div className="flex items-center gap-1 mt-1 text-red-600 text-sm">
-                <AlertCircle className="w-4 h-4" />
-                <span>{errors.name}</span>
-              </div>
+              <p className="mt-2 text-sm text-red-600 font-medium">{errors.name}</p>
             )}
           </div>
 
-          {/* Email Field */}
+          {/* Email */}
           <div>
-            <label htmlFor="email" className="block text-gray-700 mb-2">
-              Email Address <span className="text-red-500">*</span>
+            <label htmlFor="email" className="block text-sm font-bold text-gray-900 mb-2">
+              Email *
             </label>
             <input
-              type="email"
               id="email"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                errors.email ? 'border-red-500' : 'border-gray-300'
-              }`}
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
+              className={`w-full px-5 py-4 bg-gray-50 border-2 rounded-xl focus:outline-none transition-all duration-200 text-gray-900 ${
+                errors.email 
+                  ? 'border-red-400 focus:border-red-500' 
+                  : 'border-transparent focus:border-pink-500 focus:bg-white'
+              }`}
             />
             {errors.email && (
-              <div className="flex items-center gap-1 mt-1 text-red-600 text-sm">
-                <AlertCircle className="w-4 h-4" />
-                <span>{errors.email}</span>
-              </div>
+              <p className="mt-2 text-sm text-red-600 font-medium">{errors.email}</p>
             )}
           </div>
 
-          {/* Batch Dropdown */}
+          {/* Batch */}
           <div>
-            <label htmlFor="batch" className="block text-gray-700 mb-2">
-              Batch <span className="text-red-500">*</span>
+            <label htmlFor="batch" className="block text-sm font-bold text-gray-900 mb-2">
+              Batch *
             </label>
             <select
               id="batch"
-              value={formData.batch}
-              onChange={(e) => setFormData({ ...formData, batch: e.target.value })}
-              className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                errors.batch ? 'border-red-500' : 'border-gray-300'
+              value={batch}
+              onChange={(e) => setBatch(e.target.value)}
+              className={`w-full px-5 py-4 bg-gray-50 border-2 rounded-xl focus:outline-none transition-all duration-200 text-gray-900 ${
+                errors.batch 
+                  ? 'border-red-400 focus:border-red-500' 
+                  : 'border-transparent focus:border-pink-500 focus:bg-white'
               }`}
             >
-              {batches.map(batch => (
-                <option key={batch} value={batch}>{batch}</option>
-              ))}
+              <option value="">Select a batch</option>
+              <option value="Fall 2024">Fall 2024</option>
+              <option value="Spring 2025">Spring 2025</option>
+              <option value="Fall 2025">Fall 2025</option>
+              <option value="Spring 2026">Spring 2026</option>
+              <option value="Fall 2026">Fall 2026</option>
             </select>
             {errors.batch && (
-              <div className="flex items-center gap-1 mt-1 text-red-600 text-sm">
-                <AlertCircle className="w-4 h-4" />
-                <span>{errors.batch}</span>
-              </div>
+              <p className="mt-2 text-sm text-red-600 font-medium">{errors.batch}</p>
             )}
           </div>
 
-          {/* Vibe Code App Link */}
+          {/* Vibe Link */}
           <div>
-            <label htmlFor="vibe_link" className="block text-gray-700 mb-2">
-              Vibe Code App Link <span className="text-red-500">*</span>
+            <label htmlFor="vibeLink" className="block text-sm font-bold text-gray-900 mb-2">
+              Vibe Code App Link
             </label>
             <input
+              id="vibeLink"
               type="url"
-              id="vibe_link"
-              value={formData.vibe_link}
-              onChange={(e) => setFormData({ ...formData, vibe_link: e.target.value })}
-              className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                errors.vibe_link ? 'border-red-500' : 'border-gray-300'
+              value={vibeLink}
+              onChange={(e) => setVibeLink(e.target.value)}
+              placeholder="https://your-vibe-app.com"
+              className={`w-full px-5 py-4 bg-gray-50 border-2 rounded-xl focus:outline-none transition-all duration-200 text-gray-900 ${
+                errors.vibeLink 
+                  ? 'border-red-400 focus:border-red-500' 
+                  : 'border-transparent focus:border-pink-500 focus:bg-white'
               }`}
-              placeholder="https://myapp.vercel.app"
             />
-            {errors.vibe_link && (
-              <div className="flex items-center gap-1 mt-1 text-red-600 text-sm">
-                <AlertCircle className="w-4 h-4" />
-                <span>{errors.vibe_link}</span>
-              </div>
+            {errors.vibeLink && (
+              <p className="mt-2 text-sm text-red-600 font-medium">{errors.vibeLink}</p>
             )}
-            <p className="text-gray-500 text-sm mt-1">Must start with https://</p>
           </div>
 
-          {/* GitHub Repo Link */}
+          {/* GitHub Link */}
           <div>
-            <label htmlFor="github_link" className="block text-gray-700 mb-2">
-              GitHub Repository Link <span className="text-red-500">*</span>
+            <label htmlFor="githubLink" className="block text-sm font-bold text-gray-900 mb-2">
+              GitHub Repository Link
             </label>
             <input
+              id="githubLink"
               type="url"
-              id="github_link"
-              value={formData.github_link}
-              onChange={(e) => setFormData({ ...formData, github_link: e.target.value })}
-              className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                errors.github_link ? 'border-red-500' : 'border-gray-300'
-              }`}
+              value={githubLink}
+              onChange={(e) => setGithubLink(e.target.value)}
               placeholder="https://github.com/username/repo"
+              className={`w-full px-5 py-4 bg-gray-50 border-2 rounded-xl focus:outline-none transition-all duration-200 text-gray-900 ${
+                errors.githubLink 
+                  ? 'border-red-400 focus:border-red-500' 
+                  : 'border-transparent focus:border-pink-500 focus:bg-white'
+              }`}
             />
-            {errors.github_link && (
-              <div className="flex items-center gap-1 mt-1 text-red-600 text-sm">
-                <AlertCircle className="w-4 h-4" />
-                <span>{errors.github_link}</span>
-              </div>
+            {errors.githubLink && (
+              <p className="mt-2 text-sm text-red-600 font-medium">{errors.githubLink}</p>
             )}
-            <p className="text-gray-500 text-sm mt-1">Must contain github.com/</p>
           </div>
 
-          {/* Tags Multi-Select */}
+          {/* Tags */}
           <div>
-            <label className="block text-gray-700 mb-2">
-              Tags (Optional)
+            <label className="block text-sm font-bold text-gray-900 mb-3">
+              Project Tags
             </label>
-            <div className="grid grid-cols-2 gap-3">
-              {allTags.map(tag => (
-                <label
-                  key={tag}
-                  className={`flex items-center gap-2 px-4 py-3 border-2 rounded-lg cursor-pointer transition-all ${
-                    formData.tags.includes(tag)
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-300 hover:border-blue-300'
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={formData.tags.includes(tag)}
-                    onChange={() => toggleTag(tag)}
-                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                  />
-                  <span className={formData.tags.includes(tag) ? 'text-blue-700' : 'text-gray-700'}>
+            <div className="flex flex-wrap gap-3">
+              {allTags.map(tag => {
+                const selected = tags.includes(tag);
+                return (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => toggleTag(tag)}
+                    className={`px-5 py-3 rounded-full font-semibold transition-all duration-200 ${
+                      getTagColor(tag, selected)
+                    } ${selected ? 'scale-105 shadow-md' : ''}`}
+                  >
                     {tag}
-                  </span>
-                </label>
-              ))}
+                  </button>
+                );
+              })}
             </div>
+            <p className="mt-2 text-sm text-gray-500">
+              Select all that apply
+            </p>
           </div>
 
           {/* Action Buttons */}
-          <div className="flex gap-3 pt-4 border-t">
+          <div className="flex gap-4 pt-4">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              className="flex-1 px-6 py-4 bg-gray-100 text-gray-700 rounded-full font-bold hover:bg-gray-200 transition-all duration-200"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="flex-1 flex items-center justify-center gap-3 px-6 py-4 bg-[#E60023] text-white rounded-full font-bold shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200"
             >
-              {project ? 'Update Project' : 'Add Project'}
+              {project ? <Save className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+              <span>{project ? 'Save Changes' : 'Add Project'}</span>
             </button>
           </div>
         </form>

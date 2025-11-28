@@ -175,7 +175,7 @@ function AppContent() {
   };
 
   return (
-    <div className="min-h-screen bg-[#A7C7E7]">
+    <div className="min-h-screen bg-[#FAF9F7]">
       <Navigation user={user} onLogout={handleLogout} />
       <Routes>
         <Route path="/" element={<LandingPage />} />
